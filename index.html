@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bon Appétit — Main Dashboard</title>
+  <link rel="icon" type="image/png" href="images.png">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Cairo', sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e40af 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+      position: relative;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    /* Background Video */
+    #bg-video {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      min-width: 100%;
+      min-height: 100%;
+      width: auto;
+      height: auto;
+      transform: translate(-50%, -50%);
+      z-index: 0;
+      object-fit: cover;
+    }
+
+    /* Dark overlay over video */
+    .video-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 20, 60, 0.65);
+      z-index: 1;
+    }
+
+    /* Make all main content appear above video */
+    .hero,
+    .cards,
+    .footer-text {
+      position: relative;
+      z-index: 2;
+    }
+
+    /* Decorative background circles */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -150px;
+      left: -150px;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      background: rgba(99, 102, 241, 0.12);
+      pointer-events: none;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: -150px;
+      right: -150px;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      background: rgba(56, 189, 248, 0.10);
+      pointer-events: none;
+    }
+
+    .hero {
+      text-align: center;
+      margin-bottom: 48px;
+      animation: fadeDown 0.6s ease both;
+    }
+
+    .hero-logo {
+      width: 80px;
+      height: 80px;
+      object-fit: contain;
+      border-radius: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .hero h1 {
+      font-size: 38px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: 0.5px;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    }
+
+    .hero p {
+      font-size: 15px;
+      color: rgba(255, 255, 255, 0.7);
+      margin-top: 8px;
+    }
+
+    .cards {
+      display: flex;
+      gap: 32px;
+      flex-wrap: wrap;
+      justify-content: center;
+      animation: fadeUp 0.7s ease 0.1s both;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.07);
+      backdrop-filter: blur(16px);
+      border: 1.5px solid rgba(255, 255, 255, 0.15);
+      border-radius: 24px;
+      padding: 44px 40px;
+      width: 300px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(.34, 1.56, .64, 1);
+      text-decoration: none;
+      display: block;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, transparent 100%);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .card:hover::before {
+      opacity: 1;
+    }
+
+    .card:hover {
+      transform: translateY(-10px) scale(1.03);
+      border-color: rgba(255, 255, 255, 0.35);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+    }
+
+    .card-icon {
+      font-size: 64px;
+      margin-bottom: 18px;
+      display: block;
+      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+      transition: transform 0.3s;
+    }
+
+    .card:hover .card-icon {
+      transform: scale(1.15) rotate(-5deg);
+    }
+
+    .card-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 10px;
+    }
+
+    .card-desc {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.65);
+      line-height: 1.7;
+    }
+
+    .card-btn {
+      display: inline-block;
+      margin-top: 24px;
+      padding: 10px 28px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      transition: all 0.2s;
+    }
+
+    .card-1 .card-btn {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    }
+
+    .card-2 .card-btn {
+      background: linear-gradient(135deg, #10b981, #059669);
+    }
+
+    .card-3 .card-btn {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+    }
+
+    .card:hover .card-btn {
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+    }
+
+    .footer-text {
+      margin-top: 48px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.35);
+      animation: fadeUp 0.8s ease 0.3s both;
+    }
+
+    @keyframes fadeDown {
+      from {
+        opacity: 0;
+        transform: translateY(-30px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .footer-icons.landing-footer {
+      margin-top: 40px;
+      padding: 12px 30px;
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 100px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      position: relative;
+      z-index: 100;
+      animation: fadeUp 1s ease 0.5s both;
+      pointer-events: all;
+    }
+
+    .footer-credit {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #38bdf8, #86efac);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .icons-row {
+      display: flex;
+      gap: 16px;
+    }
+
+    .social-icon {
+      width: 38px;
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      color: #fff;
+      font-size: 18px;
+      text-decoration: none;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .social-icon:hover {
+      transform: translateY(-5px) scale(1.1);
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .social-icon.facebook:hover {
+      color: #1877f2;
+    }
+
+    .social-icon.whatsapp:hover {
+      color: #25d366;
+    }
+
+    .social-icon.linkedin:hover {
+      color: #0a66c2;
+    }
+
+    .social-icon.instagram:hover {
+      color: #e4405f;
+    }
+
+    @media (max-width: 680px) {
+      .hero h1 {
+        font-size: 26px;
+      }
+
+      .card {
+        width: 90%;
+        padding: 32px 24px;
+      }
+
+      .cards {
+        gap: 20px;
+      }
+    }
+
+    /* Custom Stylish Scrollbar - Matching Video Warm Tones */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.05);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(245, 158, 11, 0.4);
+      border-radius: 10px;
+      border: 2px solid transparent;
+      background-clip: content-box;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(245, 158, 11, 0.7);
+      background-clip: content-box;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Background Video -->
+  <video id="bg-video" autoplay muted playsinline>
+    <source src="background.mp4" type="video/mp4">
+  </video>
+  <div class="video-overlay"></div>
+  <script>
+    const vid = document.getElementById('bg-video');
+    vid.addEventListener('timeupdate', function () {
+      if (vid.duration && vid.currentTime >= vid.duration - 2) {
+        vid.currentTime = 0;
+      }
+    });
+  </script>
+
+  <div class="hero" style="margin-bottom: 24px;">
+    <img src="images.png" alt="Bon Appétit Logo" class="hero-logo">
+    <h1>Bon Appétit</h1>
+  </div>
+
+  <div class="cards">
+    <!-- Card 1: Delivery -->
+    <a href="delivery.html" class="card card-1">
+      <div class="card-icon">
+        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.5"
+          stroke-linecap="round" stroke-linejoin="round">
+          <rect x="1" y="3" width="15" height="13"></rect>
+          <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+          <circle cx="5.5" cy="18.5" r="2.5"></circle>
+          <circle cx="18.5" cy="18.5" r="2.5"></circle>
+        </svg>
+      </div>
+      <div class="card-title">Delivery Data</div>
+      <div class="card-btn">Enter →</div>
+    </a>
+
+    <!-- Card 2: Inquiries -->
+    <a href="inquiries.html" class="card card-2">
+      <div class="card-icon">
+        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="1.5"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          <line x1="8" y1="9" x2="16" y2="9"></line>
+          <line x1="8" y1="13" x2="14" y2="13"></line>
+        </svg>
+      </div>
+      <div class="card-title">Customer Inquiries</div>
+      <div class="card-btn">Enter →</div>
+    </a>
+
+    <!-- Card 3: CMS (Order System) -->
+    <a href="cms.html" class="card card-3">
+      <div class="card-icon">
+        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="1.5"
+          stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+          <line x1="8" y1="21" x2="16" y2="21"></line>
+          <line x1="12" y1="17" x2="12" y2="21"></line>
+          <line x1="7" y1="8" x2="7" y2="8" stroke-width="2.5" stroke-linecap="round"></line>
+          <line x1="12" y1="8" x2="12" y2="8" stroke-width="2.5" stroke-linecap="round"></line>
+          <line x1="17" y1="8" x2="17" y2="8" stroke-width="2.5" stroke-linecap="round"></line>
+          <line x1="7" y1="12" x2="7" y2="12" stroke-width="2.5" stroke-linecap="round"></line>
+          <line x1="12" y1="12" x2="12" y2="12" stroke-width="2.5" stroke-linecap="round"></line>
+          <line x1="17" y1="12" x2="17" y2="12" stroke-width="2.5" stroke-linecap="round"></line>
+        </svg>
+      </div>
+      <div class="card-title">CM System</div>
+      <div class="card-btn">Enter →</div>
+    </a>
+  </div>
+
+  <div class="footer-icons landing-footer">
+    <span class="footer-credit">By Eng Ahmed Mohamed</span>
+    <div class="icons-row">
+      <a href="https://web.facebook.com/ahmed.mohamed.857575" target="_blank" title="Facebook"
+        class="social-icon facebook"><i class="fa-brands fa-facebook"></i></a>
+      <a href="https://wa.me/201159768514" target="_blank" title="WhatsApp" class="social-icon whatsapp"><i
+          class="fa-brands fa-whatsapp"></i></a>
+      <a href="https://www.linkedin.com/in/ahmed-mohamed-596713279/" target="_blank" title="LinkedIn"
+        class="social-icon linkedin"><i class="fa-brands fa-linkedin"></i></a>
+      <a href="https://www.instagram.com/ahmed_mohamed_40/?__pwa=1" target="_blank" title="Instagram"
+        class="social-icon instagram"><i class="fa-brands fa-instagram"></i></a>
+    </div>
+  </div>
+
+  <div class="footer-text" style="margin-top:20px;">Bon Appétit System &copy; 2026</div>
+
+</body>
+
+</html>
