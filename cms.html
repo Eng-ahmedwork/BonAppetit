@@ -468,9 +468,9 @@
             background: rgba(255, 255, 255, 0.1);
             border: 2px solid rgba(255, 255, 255, 0.4);
             border-radius: 4px;
-            padding: 6px 24px;
-            font-size: 28px;
-            font-weight: 800;
+            padding: 2px 16px;
+            font-size: 20px;
+            font-weight: 700;
             min-width: 180px;
             text-align: center;
             display: inline-block;
@@ -552,10 +552,10 @@
         /* KEYPAD */
         .pos-keypad {
             background: #e5e7eb;
-            padding: 4px;
+            padding: 2px;
             display: grid;
             grid-template-columns: repeat(6, 1fr);
-            gap: 4px;
+            gap: 3px;
             border-top: 1px solid #d1d5db;
         }
 
@@ -563,11 +563,11 @@
             background: linear-gradient(to bottom, #ffffff, #f3f4f6);
             border: 1px solid #9ca3af;
             border-radius: 4px;
-            height: 38px;
+            height: 36px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 700;
             color: #374151;
             cursor: pointer;
@@ -590,10 +590,10 @@
         /* BOTTOM FOOTER */
         .pos-bottom-bar {
             background: #d1d5db;
-            padding: 6px;
+            padding: 4px;
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 4px;
             border-top: 1px solid #9ca3af;
         }
 
@@ -630,9 +630,9 @@
 
         .btn-mini {
             border-radius: 4px;
-            padding: 10px;
-            font-weight: 800;
-            font-size: 16px;
+            padding: 6px;
+            font-weight: 700;
+            font-size: 13px;
             color: #fff;
             border: 1px solid rgba(0, 0, 0, 0.1);
             cursor: pointer;
@@ -1391,6 +1391,79 @@
 
             <!-- POS SUMMARY (Top) -->
             <div class="pos-summary">
+                <!-- Order Info Bar -->
+                <style>
+                    .floating-field {
+                        position: relative;
+                        border: 1.5px solid rgba(255, 255, 255, 0.4);
+                        border-radius: 12px;
+                        padding: 0;
+                        background: rgba(255, 255, 255, 0.05);
+                        transition: all 0.3s ease;
+                        flex: 1;
+                    }
+
+                    .floating-field:focus-within {
+                        border-color: #ffdf85;
+                        background: rgba(255, 255, 255, 0.1);
+                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                    }
+
+                    .floating-field label {
+                        position: absolute;
+                        top: -9px;
+                        right: 12px;
+                        background: #2558c4;
+                        /* Blend with gradient blue */
+                        padding: 0 6px;
+                        font-size: 11px;
+                        font-weight: 800;
+                        color: #fff;
+                        border-radius: 4px;
+                    }
+
+                    .floating-field input {
+                        width: 100%;
+                        background: transparent;
+                        border: none;
+                        padding: 6px 12px;
+                        font-family: inherit;
+                        font-size: 13px;
+                        font-weight: 700;
+                        outline: none;
+                        text-align: right;
+                        color: #fff;
+                    }
+
+                    .floating-field input::placeholder {
+                        color: rgba(255, 255, 255, 0.4);
+                        font-weight: 400;
+                    }
+                </style>
+                <div class="order-info-bar"
+                    style="direction: rtl; display: flex; flex-direction: column; gap: 10px; padding: 8px 4px 8px 4px; margin-bottom: 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.2);">
+                    <!-- 4 fields in 2-column grid -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px 10px;">
+                        <div class="floating-field">
+                            <label>Customer Name</label>
+                            <input type="text" id="val-name" placeholder="...Enter Name" autocomplete="off">
+                        </div>
+                        <div class="floating-field">
+                            <label>Phone Number</label>
+                            <input type="text" id="val-phone" placeholder="...Enter Phone Number" autocomplete="off">
+                        </div>
+                        <div class="floating-field">
+                            <label>Area</label>
+                            <input type="text" id="val-zone" placeholder="...Auto" autocomplete="off" readonly
+                                style="color: rgba(255,255,255,0.7); cursor: not-allowed;">
+                        </div>
+                        <div class="floating-field">
+                            <label>Branch</label>
+                            <input type="text" id="val-branch" placeholder="...Auto" autocomplete="off" readonly
+                                style="color: rgba(255,255,255,0.7); cursor: not-allowed;">
+                        </div>
+                    </div>
+                </div>
                 <div class="summary-grid">
                     <div class="summary-row"><span class="label">Sub Total</span> <span id="subtotal">0.00</span></div>
                     <div class="summary-row" ondblclick="openAddressModal()" style="cursor:pointer;"
@@ -1446,10 +1519,6 @@
 
             <!-- Bottom Bar -->
             <div class="pos-bottom-bar">
-                <div class="green-park-btn" onclick="confirmOrder()">
-                    Green Park
-                    <span class="btn-badge">75</span>
-                </div>
                 <div class="action-btns-mini">
                     <button class="btn-mini clear" onclick="clearOrder()">Clear</button>
                     <button class="btn-mini screen" onclick="captureOrder()">Screen</button>
@@ -1510,10 +1579,6 @@
 
     <!-- Hidden elements for script compatibility -->
     <div style="display:none;">
-        <input type="text" id="val-name">
-        <input type="text" id="val-phone">
-        <input type="text" id="val-zone">
-        <input type="text" id="val-branch">
         <input type="text" id="val-delivery">
     </div>
 
