@@ -1759,8 +1759,16 @@
             const data = localStorage.getItem(DELIVERY_STORAGE_KEY);
             if (data) {
                 deliveryRows = JSON.parse(data);
-                console.log(`Loaded ${deliveryRows.length} delivery records for auto-fill.`);
+                console.log(`Loaded ${deliveryRows.length} delivery records for auto-fill (cache).`);
             }
+            db.ref('delivery_data').on('value', snapshot => {
+                const val = snapshot.val();
+                if (val) {
+                    deliveryRows = val;
+                    localStorage.setItem(DELIVERY_STORAGE_KEY, JSON.stringify(deliveryRows));
+                    console.log(`Loaded ${deliveryRows.length} delivery records for auto-fill (sync).`);
+                }
+            });
         }
 
         function showSuggestions(query) {
