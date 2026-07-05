@@ -2099,7 +2099,9 @@
 
             // Sales Tax (14% VAT of subtotal + delivery)
             // const salesTax = (sub + delivery) * 0.14;
-            const salesTax = (sub + delivery);
+
+            // Sales Tax (Removed)
+            const salesTax = 0;
             const discount = 0;
 
             const grand = Math.max(0, sub + delivery + salesTax - discount);
