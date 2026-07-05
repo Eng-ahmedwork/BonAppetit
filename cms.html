@@ -2098,7 +2098,8 @@
             const delivery = deliveryEl ? parseFloat(deliveryEl.value) || 0 : 0;
 
             // Sales Tax (14% VAT of subtotal + delivery)
-            const salesTax = (sub + delivery) * 0.14;
+            // const salesTax = (sub + delivery) * 0.14;
+            const salesTax = (sub + delivery);
             const discount = 0;
 
             const grand = Math.max(0, sub + delivery + salesTax - discount);
