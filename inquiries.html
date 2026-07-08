@@ -1012,7 +1012,6 @@
 
         <div class="footer">
             <div>Total Inquiries: <span class="badge badge-blue" id="rowCount">0</span></div>
-            <div>Today: <span class="badge badge-green" id="todayCount">0</span></div>
             <div id="loggedAs" style="font-size:12px"></div>
         </div>
     </div>
@@ -1521,8 +1520,6 @@
             });
 
             document.getElementById('rowCount').textContent = inquiries.length;
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('todayCount').textContent = inquiries.filter(r => r.date === today).length;
 
             if (!filtered.length) {
                 tbody.innerHTML = '';
@@ -1544,10 +1541,10 @@
           <td>${esc(r.emp)}</td>
           <td>
             <div style="display:flex;gap:5px;justify-content:center;flex-wrap:wrap">
-              <button class="btn-primary" style="font-size:11px;padding:5px 10px" onclick="viewInquiry(${r.id})">👁 عرض</button>
+              <button class="btn-primary" style="font-size:11px;padding:5px 10px" onclick="viewInquiry(${r.id})">👁 View</button>
               ${hasFullAccess ? `
-                <button class="btn-warning" style="font-size:11px;padding:5px 10px" onclick="openInquiryPopup(${r.id})">✏ تعديل</button>
-                <button class="btn-danger" style="font-size:11px;padding:5px 10px" onclick="deleteInquiry(${r.id})">🗑</button>
+                <button class="btn-warning" style="font-size:11px;padding:5px 10px" onclick="openInquiryPopup(${r.id})">✏ Edit</button>
+                <button class="btn-danger" style="font-size:11px;padding:5px 10px" onclick="deleteInquiry(${r.id})">🗑 Delete</button>
               ` : ''}
             </div>
           </td>
