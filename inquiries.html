@@ -1233,7 +1233,9 @@
             const sess = localStorage.getItem(SESSION_KEY);
             if (sess) {
                 currentUser = JSON.parse(sess);
-                checkAutoReset();
+                // ✅ FIX: checkAutoReset() is now called inside syncWithFirebase()
+                // after fetching the shared reset-time from Firebase.
+                // Do NOT call it here to avoid wiping data before sync.
                 showApp();
             }
             // login keyboard
@@ -1283,6 +1285,25 @@
                     db.ref('inquiries_users').set(users);
                 }
             });
+
+            // ✅ FIX: Sync last reset time from Firebase THEN check auto-reset
+            // This prevents any new device/browser from wiping all data
+            db.ref('system_last_reset').once('value', snapshot => {
+                const fbReset = snapshot.val();
+                if (fbReset) {
+                    // Sync the shared reset time to localStorage too
+                    localStorage.setItem(RESET_KEY, fbReset);
+                } else {
+                    // ✅ First-time setup: initialize system_last_reset in Firebase
+                    // Set it to "just now" so the system starts tracking from today.
+                    // This means the FIRST auto-reset will happen at the NEXT 2:00 AM.
+                    const initTime = new Date().toISOString();
+                    db.ref('system_last_reset').set(initTime);
+                    localStorage.setItem(RESET_KEY, initTime);
+                }
+                // Only now is it safe to check auto-reset
+                if (currentUser) checkAutoReset();
+            });
         }
 
         function saveToFirebase() {
@@ -1317,7 +1338,12 @@
                 currentUser = found;
                 localStorage.setItem(SESSION_KEY, JSON.stringify(found));
                 err.classList.remove('show');
-                checkAutoReset();
+                // ✅ FIX: Fetch shared reset time from Firebase before checking auto-reset
+                db.ref('system_last_reset').once('value', snapshot => {
+                    const fbReset = snapshot.val();
+                    if (fbReset) localStorage.setItem(RESET_KEY, fbReset);
+                    checkAutoReset();
+                });
                 showApp();
             } else {
                 uEl.classList.add('error'); pEl.classList.add('error');
@@ -1662,27 +1688,75 @@
         }
 
         // ════════ AUTO-RESET ════════
+        let _resetTimer = null; // Holds the setTimeout handle for the 2 AM timer
+
+        /**
+         * Performs the actual data wipe and saves the reset timestamp to
+         * both localStorage AND Firebase so every device stays in sync.
+         */
+        function performReset() {
+            inquiries = [];
+            saveToFirebase();
+            const nowISO = new Date().toISOString();
+            localStorage.setItem(RESET_KEY, nowISO);
+            db.ref('system_last_reset').set(nowISO);
+            console.log('System Auto-Reset: All inquiries cleared at 2:00 AM.');
+            render();
+            toast('تم مسح الاستفسارات تلقائياً — بداية يوم جديد 🌅', 'success');
+        }
+
+        /**
+         * Schedules a precise setTimeout that fires exactly at the next 2:00 AM.
+         * Works as long as the browser tab is open.
+         * If the tab is closed, checkAutoReset() handles missed resets on next login.
+         */
+        function scheduleNextReset() {
+            if (_resetTimer) clearTimeout(_resetTimer);
+
+            const now = new Date();
+            const next2AM = new Date();
+            next2AM.setHours(2, 0, 0, 0);
+
+            // If it's already 2:00 AM or later today → schedule for TOMORROW 2:00 AM
+            if (now >= next2AM) {
+                next2AM.setDate(next2AM.getDate() + 1);
+            }
+
+            const msUntil2AM = next2AM.getTime() - now.getTime();
+            const minsLeft = Math.round(msUntil2AM / 60000);
+            console.log(`Auto-reset scheduled in ${minsLeft} minute(s) (at ${next2AM.toLocaleTimeString()}).`);
+
+            _resetTimer = setTimeout(() => {
+                performReset();
+                // Reschedule for the following day
+                scheduleNextReset();
+            }, msUntil2AM);
+        }
+
+        /**
+         * Called on every login / page restore.
+         * 1) Checks whether the 2:00 AM reset was MISSED (tab was closed at that time).
+         * 2) Schedules the NEXT precise 2:00 AM timer.
+         */
         function checkAutoReset() {
             const now = new Date();
             const lastResetStr = localStorage.getItem(RESET_KEY);
 
-            // Create a date object for today at 2:00 AM
+            // Build the threshold: the most recent 2:00 AM that should have fired.
             const today2AM = new Date();
             today2AM.setHours(2, 0, 0, 0);
-
-            // Threshold: The most recent 2:00 AM that should have triggered a reset
             const threshold = now < today2AM
-                ? new Date(today2AM.getTime() - 24 * 60 * 60 * 1000)
-                : today2AM;
+                ? new Date(today2AM.getTime() - 24 * 60 * 60 * 1000) // yesterday 2 AM
+                : today2AM;                                             // today 2 AM
 
-            if (!lastResetStr || new Date(lastResetStr) < threshold) {
-                // Perform permanent reset
-                inquiries = [];
-                saveToFirebase();
-                localStorage.setItem(RESET_KEY, now.toISOString());
-                console.log("System Auto-Reset: All inquiries cleared based on 2:00 AM rule.");
-                render();
+            // Catch-up: if a reset was missed while the tab was closed, do it now.
+            // Guard: only reset if lastResetStr is set (not a fresh device with no history).
+            if (lastResetStr && new Date(lastResetStr) < threshold) {
+                performReset();
             }
+
+            // Always arm the precise 2:00 AM timer for future resets.
+            scheduleNextReset();
         }
     </script>
 </body>
