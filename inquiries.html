@@ -980,6 +980,8 @@
                 <button class="clear-search" id="clearSearchBtn" title="Clear Search">✕</button>
             </div>
             <button class="btn-success" id="newInquiryBtn" onclick="openInquiryPopup()">➕ New Inquiry</button>
+            <button class="btn-danger" id="clearAllBtn" onclick="clearAllInquiries()" style="display:none">🗑 Delete
+                All</button>
             <button class="btn-warning" id="exportBtn" onclick="exportToXLSX()" style="display:none">📤 Export
                 Excel</button>
         </div>
@@ -1049,9 +1051,14 @@
                     </select>
                 </div>
 
-                <div class="popup-field">
+                <div class="popup-field" style="display:none">
                     <label>التاريخ *</label>
                     <input type="date" id="p-date" readonly>
+                </div>
+
+                <div class="popup-field" style="display:none">
+                    <label>الوقت *</label>
+                    <input type="time" id="p-time">
                 </div>
 
                 <div class="popup-field">
@@ -1073,7 +1080,7 @@
                     <datalist id="govList">
                         <option value="القاهرة">
                         <option value="الجيزة">
-                        <!-- <option value="الإسكندرية">
+                            <!-- <option value="الإسكندرية">
                         <option value="الدقهلية">
                         <option value="البحر الأحمر">
                         <option value="البحيرة">
@@ -1193,14 +1200,14 @@
     <script>
         // ════════ FIREBASE CONFIG ════════
         const firebaseConfig = {
-            apiKey: "AIzaSyCdMHJQkFZiklKTZk4RFpuhukYMYpWFukw",
-            authDomain: "inquiries-dd47a.firebaseapp.com",
-            databaseURL: "https://inquiries-dd47a-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "inquiries-dd47a",
-            storageBucket: "inquiries-dd47a.firebasestorage.app",
-            messagingSenderId: "783078106625",
-            appId: "1:783078106625:web:9327c5f85b23a792c88200",
-            measurementId: "G-KKNGMBV16G"
+            apiKey: "AIzaSyDue9qSM33CJA9RV7Tiyyf1z1MipcogntM",
+            authDomain: "inquiries2.firebaseapp.com",
+            databaseURL: "https://inquiries2-default-rtdb.firebaseio.com",
+            projectId: "inquiries2",
+            storageBucket: "inquiries2.firebasestorage.app",
+            messagingSenderId: "320779360194",
+            appId: "1:320779360194:web:e5421493cd0134513ae85b",
+            measurementId: "G-CEJ61STCNP"
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
@@ -1210,7 +1217,6 @@
         const USERS_KEY = 'inq_users';
         const DATA_KEY = 'inq_data';
         const SESSION_KEY = 'inq_session';
-        const RESET_KEY = 'inq_last_reset';
 
         // ════════ STATE ════════
         let currentUser = null;
@@ -1218,6 +1224,7 @@
         let users = [];
         let editId = null;
         let pendingConfirm = null;
+        let suppressMigration = false; // prevents re-upload when intentionally clearing
 
         (function init() {
             // 1. Initial Load from LocalStorage (for speed/migration)
@@ -1233,16 +1240,15 @@
             const sess = localStorage.getItem(SESSION_KEY);
             if (sess) {
                 currentUser = JSON.parse(sess);
-                // ✅ FIX: checkAutoReset() is now called inside syncWithFirebase()
-                // after fetching the shared reset-time from Firebase.
-                // Do NOT call it here to avoid wiping data before sync.
                 showApp();
             }
             // login keyboard
             document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
             document.getElementById('loginUser').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('loginPass').focus(); });
-            // set today on date input
+            // set today on date input and current time
             document.getElementById('p-date').value = new Date().toISOString().split('T')[0];
+            const _initNow = new Date();
+            document.getElementById('p-time').value = `${String(_initNow.getHours()).padStart(2, '0')}:${String(_initNow.getMinutes()).padStart(2, '0')}`;
             // search
             document.getElementById('searchBox').addEventListener('input', e => {
                 document.getElementById('clearSearchBtn').style.display = e.target.value ? 'flex' : 'none';
@@ -1264,13 +1270,19 @@
             // Sync Inquiries
             db.ref('inquiries_data').on('value', snapshot => {
                 const val = snapshot.val();
-                if (val) {
+                if (val && Array.isArray(val)) {
                     inquiries = val;
                     localStorage.setItem(DATA_KEY, JSON.stringify(inquiries));
                     render();
-                } else if (inquiries.length > 0) {
+                } else if (!val && !suppressMigration && inquiries.length > 0) {
                     // Migration: If Firebase is empty but local has data, upload it
                     db.ref('inquiries_data').set(inquiries);
+                } else if (!val && suppressMigration) {
+                    // Intentional clear: update local state to empty
+                    inquiries = [];
+                    localStorage.setItem(DATA_KEY, JSON.stringify([]));
+                    suppressMigration = false;
+                    render();
                 }
             });
 
@@ -1286,34 +1298,22 @@
                 }
             });
 
-            // ✅ FIX: Sync last reset time from Firebase THEN check auto-reset
-            // This prevents any new device/browser from wiping all data
-            db.ref('system_last_reset').once('value', snapshot => {
-                const fbReset = snapshot.val();
-                if (fbReset) {
-                    // Sync the shared reset time to localStorage too
-                    localStorage.setItem(RESET_KEY, fbReset);
-                } else {
-                    // ✅ First-time setup: initialize system_last_reset in Firebase
-                    // Set it to "just now" so the system starts tracking from today.
-                    // This means the FIRST auto-reset will happen at the NEXT 2:00 AM.
-                    const initTime = new Date().toISOString();
-                    db.ref('system_last_reset').set(initTime);
-                    localStorage.setItem(RESET_KEY, initTime);
-                }
-                // Only now is it safe to check auto-reset
-                if (currentUser) checkAutoReset();
-            });
         }
 
         function saveToFirebase() {
-            db.ref('inquiries_data').set(inquiries).catch(e => console.error("FB Save Error:", e));
+            const dataToSave = inquiries.length > 0 ? inquiries : null;
+            if (dataToSave === null) suppressMigration = true;
+            db.ref('inquiries_data').set(dataToSave).catch(e => console.error("FB Save Error:", e));
             localStorage.setItem(DATA_KEY, JSON.stringify(inquiries));
         }
 
         function saveUsersToFirebase() {
             db.ref('inquiries_users').set(users).catch(e => console.error("FB Users Save Error:", e));
             localStorage.setItem(USERS_KEY, JSON.stringify(users));
+        }
+
+        function canClearAllInquiries() {
+            return currentUser?.role === 'admin' || currentUser?.username === 'hossam farouk';
         }
 
         // ════════ AUTH ════════
@@ -1338,12 +1338,6 @@
                 currentUser = found;
                 localStorage.setItem(SESSION_KEY, JSON.stringify(found));
                 err.classList.remove('show');
-                // ✅ FIX: Fetch shared reset time from Firebase before checking auto-reset
-                db.ref('system_last_reset').once('value', snapshot => {
-                    const fbReset = snapshot.val();
-                    if (fbReset) localStorage.setItem(RESET_KEY, fbReset);
-                    checkAutoReset();
-                });
                 showApp();
             } else {
                 uEl.classList.add('error'); pEl.classList.add('error');
@@ -1373,6 +1367,11 @@
             // Show Admin Panel ONLY for admin
             document.getElementById('adminPanelBtn').style.display = isAdmin ? 'inline-flex' : 'none';
 
+            const clearAllBtn = document.getElementById('clearAllBtn');
+            if (clearAllBtn) {
+                clearAllBtn.style.display = canClearAllInquiries() ? 'inline-flex' : 'none';
+            }
+
             // Show Export ONLY for Admin OR Manager
             const displayFull = (isAdmin || isManager) ? 'inline-flex' : 'none';
             if (document.getElementById('exportBtn')) document.getElementById('exportBtn').style.display = displayFull;
@@ -1385,39 +1384,39 @@
         function addUser() {
             const u = document.getElementById('newUsername').value.trim();
             const p = document.getElementById('newUserPass').value.trim();
-            if (!u || !p) return toast('يرجى إدخال اسم المستخدم وكلمة المرور', 'error');
-            if (u === ADMIN_USER) return toast('هذا الاسم محجوز للمدير', 'error');
-            if (users.find(x => x.username === u)) return toast('اسم المستخدم موجود مسبقاً', 'error');
+            if (!u || !p) return toast('Please enter a username and password', 'error');
+            if (u === ADMIN_USER) return toast('This name is reserved for the admin', 'error');
+            if (users.find(x => x.username === u)) return toast('Username already exists', 'error');
             users.push({ username: u, password: p });
             saveUsersToFirebase();
             document.getElementById('newUsername').value = '';
             document.getElementById('newUserPass').value = '';
             renderUserList();
-            toast(`تم إضافة المستخدم: ${u}`, 'success');
+            toast(`User added: ${u}`, 'success');
         }
 
         function deleteUser(u) {
-            confirm2('حذف المستخدم', `هل تريد حذف المستخدم "${u}"؟`, () => {
+            confirm2('Delete User', `Are you sure you want to delete the user "${u}"?`, () => {
                 users = users.filter(x => x.username !== u);
                 saveUsersToFirebase();
                 renderUserList();
-                toast('تم حذف المستخدم', 'success');
+                toast('User deleted successfully', 'success');
             });
         }
 
         function renderUserList() {
             const list = document.getElementById('userList');
             if (!users.length) {
-                list.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:16px;">لا يوجد مستخدمون حتى الآن</div>';
+                list.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:16px;">No users yet</div>';
                 return;
             }
             list.innerHTML = users.map(u => `
       <div class="user-item">
         <div class="user-info">
           <div class="user-name">👤 ${u.username}</div>
-          <div class="user-role">موظف — وصول عادي</div>
+          <div class="user-role">Employee — Standard Access</div>
         </div>
-        <button class="btn-danger" style="font-size:12px;padding:6px 12px;" onclick="deleteUser('${u.username}')">🗑 حذف</button>
+        <button class="btn-danger" style="font-size:12px;padding:6px 12px;" onclick="deleteUser('${u.username}')">🗑 Delete</button>
       </div>
     `).join('');
         }
@@ -1430,7 +1429,7 @@
         // ════════ INQUIRY POPUP ════════
         function openInquiryPopup(id = null) {
             editId = id;
-            document.getElementById('popupTitle').textContent = id ? '✏ تعديل الاستفسار' : '📋 استفسار جديد';
+            document.getElementById('popupTitle').textContent = id ? '✏ Edit Inquiry' : '📋 New Inquiry';
             const fields = ['type', 'date', 'custid', 'custname', 'gov', 'area', 'notes', 'emp'];
 
             if (id !== null) {
@@ -1438,6 +1437,7 @@
                 if (r) {
                     document.getElementById('p-type').value = r.type || '';
                     document.getElementById('p-date').value = r.date || '';
+                    document.getElementById('p-time').value = r.time || '';
                     document.getElementById('p-custid').value = r.custid || '';
                     document.getElementById('p-custname').value = r.custname || '';
 
@@ -1449,6 +1449,8 @@
             } else {
                 document.getElementById('p-type').value = '';
                 document.getElementById('p-date').value = new Date().toISOString().split('T')[0];
+                const _now = new Date();
+                document.getElementById('p-time').value = `${String(_now.getHours()).padStart(2, '0')}:${String(_now.getMinutes()).padStart(2, '0')}`;
                 document.getElementById('p-custid').value = '';
                 document.getElementById('p-custname').value = '';
 
@@ -1469,13 +1471,14 @@
             const date = document.getElementById('p-date').value;
             const custid = document.getElementById('p-custid').value.trim();
 
-            if (!type || !date) return toast('يرجى تحديد نوع الاستفسار والتاريخ', 'error');
-            if (custid && custid.length !== 11) return toast('رقم العميل يجب أن يكون 11 رقماً بالضبط', 'error');
+            if (!type || !date) return toast('Please select the inquiry type and date', 'error');
+            if (custid && custid.length !== 11) return toast('Customer ID must be exactly 11 digits', 'error');
 
             const record = {
                 id: editId !== null ? editId : Date.now(),
                 type: type,
                 date: date,
+                time: document.getElementById('p-time').value || '',
                 custid: document.getElementById('p-custid').value.trim(),
                 custname: document.getElementById('p-custname').value.trim(),
 
@@ -1490,10 +1493,10 @@
             if (editId !== null) {
                 const idx = inquiries.findIndex(x => x.id === editId);
                 if (idx > -1) inquiries[idx] = record;
-                toast('تم تحديث الاستفسار بنجاح', 'success');
+                toast('Inquiry updated successfully', 'success');
             } else {
                 inquiries.push(record);
-                toast('تم حفظ الاستفسار بنجاح ✔', 'success');
+                toast('Inquiry saved successfully ✔', 'success');
             }
 
             saveToFirebase();
@@ -1508,11 +1511,23 @@
         }
 
         function deleteInquiry(id) {
-            confirm2('حذف الاستفسار', 'هل أنت متأكد من حذف هذا الاستفسار؟', () => {
+            confirm2('Delete Inquiry', 'Are you sure you want to delete this inquiry?', () => {
                 inquiries = inquiries.filter(x => x.id !== id);
                 saveToFirebase();
                 render();
-                toast('تم حذف الاستفسار', 'success');
+                toast('Inquiry deleted successfully', 'success');
+            });
+        }
+
+        function clearAllInquiries() {
+            if (!canClearAllInquiries()) return toast('You do not have permission to delete all inquiries', 'error');
+            if (!inquiries.length) return toast('No inquiries found to delete', 'error');
+
+            confirm2('Delete All Inquiries', 'Are you sure you want to permanently delete all inquiries? This action cannot be undone.', () => {
+                inquiries = [];
+                saveToFirebase();
+                render();
+                toast('All inquiries deleted successfully', 'success');
             });
         }
 
@@ -1563,7 +1578,10 @@
           <td style="font-weight:600">${esc(r.custname)}</td>
           <td>${esc(r.gov)}</td>
           <td>${esc(r.area)}</td>
-          <td style="white-space:nowrap">${r.date || ''}</td>
+          <td style="white-space:nowrap;text-align:center;line-height:1.6">
+            ${r.date || ''}<br>
+            <span style="color:#6b7280;font-size:12px">⏱ ${r.time || '—'}</span>
+          </td>
           <td>${esc(r.emp)}</td>
           <td>
             <div style="display:flex;gap:5px;justify-content:center;flex-wrap:wrap">
@@ -1647,7 +1665,7 @@
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'استفسارات العملاء');
             XLSX.writeFile(wb, `inquiries-${new Date().toISOString().slice(0, 10)}.xlsx`);
-            toast('تم التصدير بنجاح', 'success');
+            toast('Exported successfully', 'success');
         }
 
         // ════════ MODALS ════════
@@ -1687,77 +1705,6 @@
             t._t = setTimeout(() => t.className = '', 2800);
         }
 
-        // ════════ AUTO-RESET ════════
-        let _resetTimer = null; // Holds the setTimeout handle for the 2 AM timer
-
-        /**
-         * Performs the actual data wipe and saves the reset timestamp to
-         * both localStorage AND Firebase so every device stays in sync.
-         */
-        function performReset() {
-            inquiries = [];
-            saveToFirebase();
-            const nowISO = new Date().toISOString();
-            localStorage.setItem(RESET_KEY, nowISO);
-            db.ref('system_last_reset').set(nowISO);
-            console.log('System Auto-Reset: All inquiries cleared at 2:00 AM.');
-            render();
-            toast('تم مسح الاستفسارات تلقائياً — بداية يوم جديد 🌅', 'success');
-        }
-
-        /**
-         * Schedules a precise setTimeout that fires exactly at the next 2:00 AM.
-         * Works as long as the browser tab is open.
-         * If the tab is closed, checkAutoReset() handles missed resets on next login.
-         */
-        function scheduleNextReset() {
-            if (_resetTimer) clearTimeout(_resetTimer);
-
-            const now = new Date();
-            const next2AM = new Date();
-            next2AM.setHours(2, 0, 0, 0);
-
-            // If it's already 2:00 AM or later today → schedule for TOMORROW 2:00 AM
-            if (now >= next2AM) {
-                next2AM.setDate(next2AM.getDate() + 1);
-            }
-
-            const msUntil2AM = next2AM.getTime() - now.getTime();
-            const minsLeft = Math.round(msUntil2AM / 60000);
-            console.log(`Auto-reset scheduled in ${minsLeft} minute(s) (at ${next2AM.toLocaleTimeString()}).`);
-
-            _resetTimer = setTimeout(() => {
-                performReset();
-                // Reschedule for the following day
-                scheduleNextReset();
-            }, msUntil2AM);
-        }
-
-        /**
-         * Called on every login / page restore.
-         * 1) Checks whether the 2:00 AM reset was MISSED (tab was closed at that time).
-         * 2) Schedules the NEXT precise 2:00 AM timer.
-         */
-        function checkAutoReset() {
-            const now = new Date();
-            const lastResetStr = localStorage.getItem(RESET_KEY);
-
-            // Build the threshold: the most recent 2:00 AM that should have fired.
-            const today2AM = new Date();
-            today2AM.setHours(2, 0, 0, 0);
-            const threshold = now < today2AM
-                ? new Date(today2AM.getTime() - 24 * 60 * 60 * 1000) // yesterday 2 AM
-                : today2AM;                                             // today 2 AM
-
-            // Catch-up: if a reset was missed while the tab was closed, do it now.
-            // Guard: only reset if lastResetStr is set (not a fresh device with no history).
-            if (lastResetStr && new Date(lastResetStr) < threshold) {
-                performReset();
-            }
-
-            // Always arm the precise 2:00 AM timer for future resets.
-            scheduleNextReset();
-        }
     </script>
 </body>
 
