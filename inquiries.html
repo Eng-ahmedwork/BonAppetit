@@ -1224,16 +1224,31 @@
         let users = [];
         let editId = null;
         let pendingConfirm = null;
-        let suppressMigration = false; // prevents re-upload when intentionally clearing
+
+        // Helper: clear ALL browser caches related to inquiry data
+        function clearAllBrowserCaches() {
+            localStorage.removeItem(DATA_KEY);
+            sessionStorage.removeItem(DATA_KEY);
+            // Clear Firebase internal IndexedDB cache
+            try {
+                if (window.indexedDB) {
+                    indexedDB.databases().then(dbs => {
+                        dbs.forEach(dbInfo => {
+                            if (dbInfo.name && dbInfo.name.includes('firebase')) {
+                                indexedDB.deleteDatabase(dbInfo.name);
+                            }
+                        });
+                    }).catch(() => {});
+                }
+            } catch(e) {}
+        }
 
         (function init() {
-            // 1. Initial Load from LocalStorage (for speed/migration)
-            const localInq = localStorage.getItem(DATA_KEY);
-            const localUsers = localStorage.getItem(USERS_KEY);
-            if (localInq) inquiries = JSON.parse(localInq);
-            if (localUsers) users = JSON.parse(localUsers);
+            // Clear ALL old inquiry data caches (Firebase is the ONLY source of truth)
+            clearAllBrowserCaches();
+            inquiries = [];
 
-            // 2. Sync from Firebase
+            // Sync from Firebase (single source of truth)
             syncWithFirebase();
 
             // restore session
@@ -1266,45 +1281,34 @@
             };
         })();
 
-        async function syncWithFirebase() {
-            // Sync Inquiries
+        function syncWithFirebase() {
+            // ── Inquiries: Firebase is the ONLY source of truth ──
             db.ref('inquiries_data').on('value', snapshot => {
                 const val = snapshot.val();
+                // Accept data only if Firebase has a valid array
+                // "CLEARED" sentinel or null or non-array = empty
                 if (val && Array.isArray(val)) {
                     inquiries = val;
-                    localStorage.setItem(DATA_KEY, JSON.stringify(inquiries));
-                    render();
-                } else if (!val && !suppressMigration && inquiries.length > 0) {
-                    // Migration: If Firebase is empty but local has data, upload it
-                    db.ref('inquiries_data').set(inquiries);
-                } else if (!val && suppressMigration) {
-                    // Intentional clear: update local state to empty
+                } else {
                     inquiries = [];
-                    localStorage.setItem(DATA_KEY, JSON.stringify([]));
-                    suppressMigration = false;
-                    render();
+                    clearAllBrowserCaches();
                 }
+                render();
             });
 
-            // Sync Users
+            // ── Users ──
             db.ref('inquiries_users').on('value', snapshot => {
                 const val = snapshot.val();
-                if (val) {
-                    users = val;
-                    localStorage.setItem(USERS_KEY, JSON.stringify(users));
-                } else if (users.length > 0) {
-                    // Migration: If Firebase is empty but local has users, upload them
-                    db.ref('inquiries_users').set(users);
-                }
+                if (val) users = val;
             });
-
         }
 
         function saveToFirebase() {
-            const dataToSave = inquiries.length > 0 ? inquiries : null;
-            if (dataToSave === null) suppressMigration = true;
+            // Save inquiries array to Firebase
+            // Use "CLEARED" sentinel instead of null to prevent old-code migration
+            const dataToSave = inquiries.length > 0 ? inquiries : 'CLEARED';
             db.ref('inquiries_data').set(dataToSave).catch(e => console.error("FB Save Error:", e));
-            localStorage.setItem(DATA_KEY, JSON.stringify(inquiries));
+            clearAllBrowserCaches();
         }
 
         function saveUsersToFirebase() {
@@ -1525,7 +1529,9 @@
 
             confirm2('Delete All Inquiries', 'Are you sure you want to permanently delete all inquiries? This action cannot be undone.', () => {
                 inquiries = [];
-                saveToFirebase();
+                localStorage.removeItem(DATA_KEY);
+                // Set to "CLEARED" sentinel (NOT null) to prevent old-code migration from re-uploading
+                db.ref('inquiries_data').set('CLEARED').catch(e => console.error("FB Clear Error:", e));
                 render();
                 toast('All inquiries deleted successfully', 'success');
             });
