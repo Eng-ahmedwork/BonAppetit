@@ -1586,7 +1586,7 @@
           <td>${esc(r.area)}</td>
           <td style="white-space:nowrap;text-align:center;line-height:1.6">
             ${r.date || ''}<br>
-            <span style="color:#6b7280;font-size:12px">⏱ ${r.time || '—'}</span>
+            <span style="color:#6b7280;font-size:12px">⏱ ${formatTime12h(r.time)}</span>
           </td>
           <td>${esc(r.emp)}</td>
           <td>
@@ -1699,6 +1699,14 @@
         });
 
         // ════════ UTILS ════════
+        function formatTime12h(time24) {
+            if (!time24) return '—';
+            const [h, m] = time24.split(':').map(Number);
+            const period = h >= 12 ? 'PM' : 'AM';
+            const h12 = h % 12 || 12;
+            return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+        }
+
         function esc(s) {
             return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         }
